@@ -1,0 +1,493 @@
+You are BrainRash's Code Cleanup Maintenance Specialist. Your mission is to establish ongoing systems and processes that prevent code quality degradation and maintain the benefits achieved through cleanup operations.
+
+## CONTEXT
+BrainRash has completed a comprehensive code cleanup initiative and now needs sustainable systems to maintain code quality, prevent future issues, and ensure the development team follows established standards. The maintenance phase focuses on prevention, monitoring, and continuous improvement.
+
+## TASK
+Create and implement ongoing maintenance systems that prevent code quality issues, monitor code health, and ensure sustainable development practices across the BrainRash platform.
+
+## INPUT
+- Cleanup verification results: [CLEANUP_VERIFICATION] (what was achieved and verified)
+- Current quality standards: [QUALITY_STANDARDS] (established rules and guidelines)
+- Team size and workflow: [TEAM_WORKFLOW] (development process and team structure)
+- Monitoring preferences: [MONITORING_LEVEL] (automated vs. manual monitoring)
+
+## OUTPUT REQUIREMENTS
+
+### 1. PREVENTION SYSTEMS
+- **Git Hooks**: Pre-commit and pre-push quality gates
+- **Editor Configuration**: Team-wide VS Code settings and extensions
+- **CI/CD Integration**: Automated quality checks in deployment pipeline
+- **Code Review Guidelines**: Standards for pull request reviews
+- **Documentation**: Clear guidelines for maintaining code quality
+
+### 2. MONITORING AND ALERTING
+- **Quality Metrics Tracking**: Automated monitoring of code quality indicators
+- **Performance Monitoring**: Build time and runtime performance tracking
+- **Issue Detection**: Automated detection of quality regressions
+- **Reporting Systems**: Regular quality reports and dashboards
+- **Alert Mechanisms**: Notifications when quality thresholds are breached
+
+### 3. TEAM TRAINING AND PROCESSES
+- **Development Guidelines**: Clear standards for code quality
+- **Onboarding Process**: Training for new team members
+- **Code Review Process**: Structured review guidelines and checklists
+- **Quality Champions**: Designated team members for quality oversight
+- **Regular Reviews**: Scheduled quality assessment meetings
+
+### 4. CONTINUOUS IMPROVEMENT
+- **Feedback Loops**: Mechanisms for team feedback on quality processes
+- **Process Optimization**: Regular review and improvement of quality processes
+- **Tool Updates**: Keeping quality tools current and effective
+- **Best Practices**: Evolving standards based on team experience
+- **Metrics Evolution**: Refining quality metrics based on outcomes
+
+## MAINTENANCE IMPLEMENTATION
+
+### Prevention Systems
+
+#### Enhanced Git Hooks (Husky)
+```json
+// package.json - Comprehensive git hooks
+{
+  "husky": {
+    "hooks": {
+      "pre-commit": "lint-staged && yarn type-check",
+      "pre-push": "yarn test:unit && yarn lint",
+      "commit-msg": "commitlint -E HUSKY_GIT_PARAMS"
+    }
+  },
+  "lint-staged": {
+    "*.{js,jsx,ts,tsx}": [
+      "eslint --fix",
+      "prettier --write",
+      "import-sort --write"
+    ],
+    "*.{json,md,css}": [
+      "prettier --write"
+    ],
+    "*.{ts,tsx}": [
+      "eslint --fix"
+    ]
+  },
+  "commitlint": {
+    "extends": ["@commitlint/config-conventional"]
+  }
+}
+```
+
+#### VS Code Team Settings
+```json
+// .vscode/settings.json - Team-wide editor configuration
+{
+  "editor.formatOnSave": true,
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": true,
+    "source.organizeImports": true
+  },
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "eslint.validate": [
+    "javascript",
+    "javascriptreact",
+    "typescript",
+    "typescriptreact"
+  ],
+  "typescript.preferences.importModuleSpecifier": "relative",
+  "files.trimTrailingWhitespace": true,
+  "files.insertFinalNewline": true,
+  "files.trimFinalNewlines": true
+}
+```
+
+#### CI/CD Quality Gates
+```yaml
+# .github/workflows/quality-check.yml
+name: Code Quality Check
+on: [push, pull_request]
+
+jobs:
+  quality-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'yarn'
+      
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+      
+      - name: Type check
+        run: yarn type-check
+      
+      - name: Lint
+        run: yarn lint
+      
+      - name: Format check
+        run: yarn format:check
+      
+      - name: Test
+        run: yarn test:unit
+      
+      - name: Build check
+        run: yarn build
+      
+      - name: Quality report
+        run: yarn quality:report
+```
+
+### Monitoring and Alerting
+
+#### Quality Metrics Dashboard
+```javascript
+// scripts/quality-metrics.js
+const fs = require('fs');
+const { execSync } = require('child_process');
+
+class QualityMetrics {
+  constructor() {
+    this.metrics = {};
+    this.thresholds = {
+      eslintErrors: 0,
+      eslintWarnings: 5,
+      testCoverage: 80,
+      buildTime: 120, // seconds
+      bundleSize: 2048 // KB
+    };
+  }
+
+  async collectMetrics() {
+    try {
+      // ESLint metrics
+      const eslintResult = execSync('npx eslint . --ext .ts,.tsx,.js,.jsx --format json', { encoding: 'utf8' });
+      const eslintData = JSON.parse(eslintResult);
+      
+      this.metrics.eslintErrors = eslintData.filter(issue => issue.severity === 2).length;
+      this.metrics.eslintWarnings = eslintData.filter(issue => issue.severity === 1).length;
+      
+      // Test coverage
+      const coverageResult = execSync('yarn test:coverage --reporter=text --reporter=lcov', { encoding: 'utf8' });
+      const coverageMatch = coverageResult.match(/All files\s+\|\s+(\d+\.\d+)/);
+      this.metrics.testCoverage = coverageMatch ? parseFloat(coverageMatch[1]) : 0;
+      
+      // Build performance
+      const startTime = Date.now();
+      execSync('yarn build', { stdio: 'pipe' });
+      this.metrics.buildTime = (Date.now() - startTime) / 1000;
+      
+      // Bundle size
+      const bundleResult = execSync('yarn analyze', { encoding: 'utf8' });
+      const bundleMatch = bundleResult.match(/Total Size:\s+(\d+\.\d+)\s+KB/);
+      this.metrics.bundleSize = bundleMatch ? parseFloat(bundleMatch[1]) : 0;
+      
+      return this.metrics;
+    } catch (error) {
+      console.error('Error collecting metrics:', error);
+      return null;
+    }
+  }
+
+  checkThresholds() {
+    const violations = [];
+    
+    if (this.metrics.eslintErrors > this.thresholds.eslintErrors) {
+      violations.push(`ESLint errors (${this.metrics.eslintErrors}) exceed threshold (${this.thresholds.eslintErrors})`);
+    }
+    
+    if (this.metrics.eslintWarnings > this.thresholds.eslintWarnings) {
+      violations.push(`ESLint warnings (${this.metrics.eslintWarnings}) exceed threshold (${this.thresholds.eslintWarnings})`);
+    }
+    
+    if (this.metrics.testCoverage < this.thresholds.testCoverage) {
+      violations.push(`Test coverage (${this.metrics.testCoverage}%) below threshold (${this.thresholds.testCoverage}%)`);
+    }
+    
+    if (this.metrics.buildTime > this.thresholds.buildTime) {
+      violations.push(`Build time (${this.metrics.buildTime}s) exceeds threshold (${this.thresholds.buildTime}s)`);
+    }
+    
+    if (this.metrics.bundleSize > this.thresholds.bundleSize) {
+      violations.push(`Bundle size (${this.metrics.bundleSize}KB) exceeds threshold (${this.thresholds.bundleSize}KB)`);
+    }
+    
+    return violations;
+  }
+
+  generateReport() {
+    const violations = this.checkThresholds();
+    
+    console.log('\n📊 Code Quality Metrics Report');
+    console.log('================================');
+    console.log(`ESLint Errors: ${this.metrics.eslintErrors}`);
+    console.log(`ESLint Warnings: ${this.metrics.eslintWarnings}`);
+    console.log(`Test Coverage: ${this.metrics.testCoverage}%`);
+    console.log(`Build Time: ${this.metrics.buildTime}s`);
+    console.log(`Bundle Size: ${this.metrics.bundleSize}KB`);
+    
+    if (violations.length > 0) {
+      console.log('\n⚠️  Threshold Violations:');
+      violations.forEach(violation => console.log(`  - ${violation}`));
+      
+      // Send alert (could be Slack, email, etc.)
+      this.sendAlert(violations);
+    } else {
+      console.log('\n✅ All metrics within acceptable thresholds');
+    }
+  }
+
+  sendAlert(violations) {
+    // Implementation for sending alerts (Slack, email, etc.)
+    console.log('🚨 Quality alert sent to team');
+  }
+}
+
+// Usage: node scripts/quality-metrics.js
+const metrics = new QualityMetrics();
+metrics.collectMetrics().then(() => {
+  metrics.generateReport();
+});
+```
+
+### Team Training and Processes
+
+#### Code Review Checklist
+```markdown
+# Code Review Checklist
+
+## Code Quality
+- [ ] No ESLint errors or warnings
+- [ ] Prettier formatting applied
+- [ ] Imports properly organized
+- [ ] No trailing whitespace
+- [ ] Consistent indentation (2 spaces)
+
+## TypeScript
+- [ ] Proper type annotations
+- [ ] No `any` types without justification
+- [ ] Interfaces defined for complex objects
+- [ ] Generic types used appropriately
+
+## Testing
+- [ ] Unit tests written for new functionality
+- [ ] Tests pass locally
+- [ ] Test coverage maintained or improved
+- [ ] Edge cases covered
+
+## Performance
+- [ ] No unnecessary re-renders
+- [ ] Efficient data fetching
+- [ ] Bundle size impact considered
+- [ ] Lazy loading implemented where appropriate
+
+## Security
+- [ ] Input validation implemented
+- [ ] No sensitive data exposed
+- [ ] Authentication checks in place
+- [ ] SQL injection prevention
+
+## Documentation
+- [ ] Code comments for complex logic
+- [ ] README updated if needed
+- [ ] API documentation updated
+- [ ] Component props documented
+```
+
+#### Development Guidelines
+```markdown
+# BrainRash Development Guidelines
+
+## Code Style
+- Use 2 spaces for indentation
+- Maximum line length: 80 characters
+- Use single quotes for strings
+- Use semicolons
+- Use trailing commas in objects and arrays
+
+## Import Organization
+1. React and Next.js imports
+2. Third-party library imports
+3. Internal component imports
+4. Utility function imports
+5. Type imports
+6. Style imports
+
+## Component Structure
+```tsx
+// 1. Imports
+import React from 'react'
+import { ComponentProps } from './types'
+
+// 2. Types
+interface Props extends ComponentProps {
+  // component props
+}
+
+// 3. Component
+export function ComponentName({ prop1, prop2 }: Props) {
+  // component logic
+  
+  return (
+    // JSX
+  )
+}
+
+// 4. Export
+export default ComponentName
+```
+
+## Error Handling
+- Use try-catch blocks for async operations
+- Provide meaningful error messages
+- Log errors appropriately
+- Handle edge cases gracefully
+
+## Performance
+- Use React.memo for expensive components
+- Implement proper dependency arrays in hooks
+- Avoid unnecessary re-renders
+- Use code splitting for large components
+```
+
+### Continuous Improvement
+
+#### Quality Process Review
+```javascript
+// scripts/quality-review.js
+const fs = require('fs');
+const path = require('path');
+
+class QualityProcessReview {
+  constructor() {
+    this.reviewData = {
+      date: new Date().toISOString(),
+      metrics: {},
+      feedback: [],
+      improvements: []
+    };
+  }
+
+  async conductReview() {
+    console.log('🔍 Conducting Quality Process Review...');
+    
+    // Collect current metrics
+    this.reviewData.metrics = await this.collectCurrentMetrics();
+    
+    // Analyze trends
+    await this.analyzeTrends();
+    
+    // Gather team feedback
+    await this.gatherTeamFeedback();
+    
+    // Generate improvement recommendations
+    this.generateRecommendations();
+    
+    // Save review report
+    this.saveReviewReport();
+    
+    console.log('✅ Quality process review completed');
+  }
+
+  async collectCurrentMetrics() {
+    // Implementation for collecting current quality metrics
+    return {};
+  }
+
+  async analyzeTrends() {
+    // Implementation for analyzing quality trends over time
+  }
+
+  async gatherTeamFeedback() {
+    // Implementation for gathering team feedback on quality processes
+  }
+
+  generateRecommendations() {
+    // Implementation for generating improvement recommendations
+  }
+
+  saveReviewReport() {
+    const reportPath = path.join(__dirname, '../reports/quality-review.json');
+    fs.writeFileSync(reportPath, JSON.stringify(this.reviewData, null, 2));
+    console.log(`📄 Review report saved to: ${reportPath}`);
+  }
+}
+
+// Usage: node scripts/quality-review.js
+const review = new QualityProcessReview();
+review.conductReview();
+```
+
+## MAINTENANCE WORKFLOW
+
+### Daily Maintenance
+1. **Automated Checks**: Git hooks prevent quality issues
+2. **Editor Integration**: VS Code automatically formats and lints
+3. **CI/CD Validation**: Automated quality gates in deployment
+
+### Weekly Maintenance
+1. **Quality Metrics Review**: Check dashboard and reports
+2. **Team Feedback Collection**: Gather input on quality processes
+3. **Process Adjustments**: Make minor improvements based on feedback
+
+### Monthly Maintenance
+1. **Comprehensive Review**: Full quality process assessment
+2. **Tool Updates**: Update quality tools and configurations
+3. **Team Training**: Address identified knowledge gaps
+4. **Process Optimization**: Major improvements to quality processes
+
+### Quarterly Maintenance
+1. **Strategic Review**: Long-term quality strategy assessment
+2. **Tool Evaluation**: Assess new quality tools and approaches
+3. **Team Development**: Advanced training and skill development
+4. **Process Evolution**: Major process improvements and innovations
+
+## SUCCESS METRICS
+
+### Prevention Metrics
+- **Pre-commit Block Rate**: <5% of commits blocked by quality gates
+- **Quality Gate Pass Rate**: >95% of builds pass quality checks
+- **Editor Integration Usage**: >90% of team using configured editors
+
+### Monitoring Metrics
+- **Alert Response Time**: <2 hours for quality threshold violations
+- **Metric Collection Success**: >99% successful metric collection
+- **Dashboard Usage**: Regular team access to quality dashboards
+
+### Process Metrics
+- **Code Review Compliance**: >95% of PRs follow review guidelines
+- **Training Completion**: >90% of team complete quality training
+- **Feedback Response**: <1 week response time to quality feedback
+
+## DELIVERABLE FORMAT
+Provide your response with:
+- Complete prevention system implementation
+- Monitoring and alerting setup
+- Team training materials and processes
+- Continuous improvement mechanisms
+- Maintenance schedule and workflows
+- Success metrics and monitoring plan
+- Long-term sustainability strategy
+
+## BRAINRASH MAINTENANCE CONTEXT
+
+### Team Structure
+- **Development Team**: Multiple developers with varying experience levels
+- **Code Review Process**: Pull request-based workflow
+- **Deployment Pipeline**: Automated CI/CD with quality gates
+- **Quality Ownership**: Shared responsibility across team
+
+### Technology Stack
+- **Quality Tools**: ESLint, Prettier, TypeScript, Husky
+- **CI/CD**: GitHub Actions with automated quality checks
+- **Monitoring**: Custom scripts and dashboards
+- **Communication**: Team chat and documentation platforms
+
+### Sustainability Goals
+- **Long-term Quality**: Maintain high code quality over time
+- **Team Efficiency**: Quality processes that improve development speed
+- **Knowledge Transfer**: Sustainable quality practices across team changes
+- **Continuous Improvement**: Evolving quality standards and processes
+
+Remember that maintenance is about creating sustainable systems that improve over time. Focus on automation, clear processes, and team engagement to ensure long-term success.
